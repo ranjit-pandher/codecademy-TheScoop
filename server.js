@@ -33,8 +33,8 @@ const routes = {
     POST: createComment,
   },
   '/comments/:id': {
-    //PUT: updateComment,
-    //DELETE: deleteComment,
+    PUT: updateComment,
+    DELETE: deleteComment,
   },
   '/comments/:id/upvote': {
     //PUT: upvoteComment,
@@ -43,39 +43,6 @@ const routes = {
     //PUT: downVoteComment,
   },
 };
-
-function createComment(url, request) {
-  const requestComment = request.body && request.body.comment;
-  const response = {};
-
-  if (
-    requestComment &&
-    requestComment.body &&
-    database.users[requestComment.username] &&
-    database.articles[requestComment.articleId]
-  ) {
-    const comment = {
-      id: database.nextCommentId++,
-      body: requestComment.body,
-      username: requestComment.username,
-      articleId: requestComment.articleId,
-      upvotedBy: [],
-      downvotedBy: [],
-    };
-
-    database.comments[comment.id] = comment;
-    database.users[requestComment.username].commentIds.push(comment.id);
-    database.articles[comment.articleId].commentIds.push(comment.id);
-    response.body = {
-      comment: comment,
-    };
-    response.status = 201;
-  } else {
-    response.status = 400;
-  }
-
-  return response;
-}
 
 function getUser(url, request) {
   const username = url.split('/').filter((segment) => segment)[1];
@@ -196,6 +163,39 @@ function createArticle(url, request) {
   return response;
 }
 
+function createComment(url, request) {
+  const requestComment = request.body && request.body.comment;
+  const response = {};
+
+  if (
+    requestComment &&
+    requestComment.body &&
+    database.users[requestComment.username] &&
+    database.articles[requestComment.articleId]
+  ) {
+    const comment = {
+      id: database.nextCommentId++,
+      body: requestComment.body,
+      username: requestComment.username,
+      articleId: requestComment.articleId,
+      upvotedBy: [],
+      downvotedBy: [],
+    };
+
+    database.comments[comment.id] = comment;
+    database.users[requestComment.username].commentIds.push(comment.id);
+    database.articles[comment.articleId].commentIds.push(comment.id);
+    response.body = {
+      comment: comment,
+    };
+    response.status = 201;
+  } else {
+    response.status = 400;
+  }
+
+  return response;
+}
+
 function updateArticle(url, request) {
   const id = Number(url.split('/').filter((segment) => segment)[1]);
   const savedArticle = database.articles[id];
@@ -211,6 +211,26 @@ function updateArticle(url, request) {
     savedArticle.url = requestArticle.url || savedArticle.url;
 
     response.body = { article: savedArticle };
+    response.status = 200;
+  }
+
+  return response;
+}
+
+function updateComment(url, request) {
+  const id = Number(url.split('/').filter((segment) => segment)[1]);
+  const savedComment = database.comments[id];
+  const requestComment = request.body && request.body.comment;
+  const response = {};
+
+  if (!id || !requestComment) {
+    response.status = 400;
+  } else if (!savedComment) {
+    response.status = 404;
+  } else {
+    savedComment.body = requestComment.body || savedComment.body;
+
+    response.body = { comment: savedComment };
     response.status = 200;
   }
 
@@ -235,6 +255,30 @@ function deleteArticle(url, request) {
     response.status = 204;
   } else {
     response.status = 400;
+  }
+
+  return response;
+}
+
+function deleteComment(url, request) {
+  const id = Number(url.split('/').filter((segment) => segment)[1]);
+  const savedComment = database.comments[id];
+  const response = {};
+
+  //console.log('comments: ', database.comments);
+  //console.log('users: ', database.users);
+  //console.log('articles: ', database.articles);
+
+  if(savedComment){
+    const userCommentIds = database.users[savedComment.username].commentIds;
+    const articleCommentIds = database.articles[savedComment.articleId].commentIds;
+
+    userCommentIds.splice(userCommentIds.indexOf(id), 1);
+    articleCommentIds.splice(articleCommentIds.indexOf(id), 1);
+    database.comments[id] = null;
+    response.status = 204;
+  } else {
+    response.status = 404;
   }
 
   return response;
